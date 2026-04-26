@@ -3,32 +3,41 @@
 <head>
   <title>Auditoría de Código</title>
   <meta charset="UTF-8">
+
   <link rel="stylesheet" href="style.css">
+
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
 </head>
+
 <body>
- <div class="container">
-  <h1>Auditoría de Código</h1>
+  <div class="container">
+    <h1>Auditoría de Código</h1>
 
-  <label>Lenguaje:</label>
-  <select id="lenguaje">
-    <option>Java</option>
-    <option>Python</option>
-    <option>JavaScript</option>
-  </select>
+    <label>Lenguaje:</label>
+    <select id="lenguaje">
+      <option>Java</option>
+      <option>Python</option>
+      <option>JavaScript</option>
+    </select>
 
-  <br><br>
+    <br><br>
 
-  <textarea id="codigo" rows="10" cols="50" placeholder="Escribí tu código acá..."></textarea>
+    <textarea id="codigo"></textarea>
 
-  <br><br>
+    <br><br>
 
-  <button onclick="analizar()">Analizar</button>
+    <button id="btnAnalizar">Analizar</button>
 
-  <h3>Resultado:</h3>
-  <p id="resultado"></p>
+    <h3>Resultado:</h3>
+    <p id="resultado"></p>
+
+    <h3>Historial</h3>
+    <ul id="historial" style="color:red;"></ul>
   </div>
 
   <script src="script.js"></script>
-
 </body>
 </html>

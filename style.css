@@ -57,3 +57,12 @@ button:hover {
   border-radius: 8px;
   font-weight: bold;
 }
+#historial {
+  margin-top: 10px;
+  padding-left: 20px;
+  color: white;
+}
+
+#historial li {
+  margin-bottom: 5px;
+}
