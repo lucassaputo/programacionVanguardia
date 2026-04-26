@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Auditoría de Código</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+ <div class="container">
+  <h1>Auditoría de Código</h1>
+
+  <label>Lenguaje:</label>
+  <select id="lenguaje">
+    <option>Java</option>
+    <option>Python</option>
+    <option>JavaScript</option>
+  </select>
+
+  <br><br>
+
+  <textarea id="codigo" rows="10" cols="50" placeholder="Escribí tu código acá..."></textarea>
+
+  <br><br>
+
+  <button onclick="analizar()">Analizar</button>
+
+  <h3>Resultado:</h3>
+  <p id="resultado"></p>
+  </div>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
