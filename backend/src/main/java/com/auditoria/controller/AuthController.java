@@ -1,5 +1,7 @@
 package com.auditoria.controller;
 
+import com.auditoria.dto.LoginRequestDTO;
+import com.auditoria.dto.LoginResponseDTO;
 import com.auditoria.dto.RegisterRequestDTO;
 import com.auditoria.dto.UserResponseDTO;
 import com.auditoria.service.UserService;
@@ -22,5 +24,11 @@ public class AuthController {
     public ResponseEntity<UserResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
         UserResponseDTO response = userService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO request) {
+        LoginResponseDTO response = userService.login(request);
+        return ResponseEntity.ok(response);
     }
 }
