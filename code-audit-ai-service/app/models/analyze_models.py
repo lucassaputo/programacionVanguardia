@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -15,16 +17,17 @@ class AnalyzeRequest(BaseModel):
 
 
 class Finding(BaseModel):
-    type: str
-    severity: str
+    type: Literal["security", "syntax", "refactor", "best_practice"]
+    severity: Literal["critical", "warning", "suggestion"]
     title: str
     description: str
-    line: int
-    suggestion: str
+    line: int | None = None
+    suggestion: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
-    status: str
+    auditId: str
+    status: Literal["success", "failed"]
     findings: list[Finding]
     pedagogicalExplanation: str
     refactoredCode: str

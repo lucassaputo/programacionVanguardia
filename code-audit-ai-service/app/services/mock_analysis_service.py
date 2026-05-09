@@ -2,10 +2,11 @@ from app.models.analyze_models import AnalyzeRequest, AnalyzeResponse, Finding
 
 
 class MockAnalysisService:
-    """Temporary mock service. Replace this class with a real AI analyzer later."""
+    """Stable mock used by Java integration and local development."""
 
     def analyze(self, request: AnalyzeRequest) -> AnalyzeResponse:
         return AnalyzeResponse(
+            auditId=request.auditId,
             status="success",
             findings=[
                 Finding(
@@ -19,7 +20,7 @@ class MockAnalysisService:
             ],
             pedagogicalExplanation=(
                 "SQL Injection ocurre cuando datos externos se concatenan directamente "
-                "en una consulta SQL, permitiendo que un atacante modifique la intención "
+                "en una consulta SQL, permitiendo que un atacante modifique la intencion "
                 "original de la consulta."
             ),
             refactoredCode=(
