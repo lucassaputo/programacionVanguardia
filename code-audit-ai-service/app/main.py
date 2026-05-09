@@ -5,8 +5,8 @@ from app.routers.analyze_router import router as analyze_router
 
 app = FastAPI(
     title="Code Audit AI Service",
-    description="Mock Python microservice for code audit analysis integration.",
-    version="0.1.0",
+    description="Python microservice for code audit analysis integration.",
+    version="0.2.0",
 )
 
 
