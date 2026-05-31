@@ -18,6 +18,14 @@ class AIAnalysisService:
     ) -> None:
         self.settings = settings
         self.prompt_builder = prompt_builder or PromptBuilder()
+        self.client = (
+            AsyncOpenAI(
+                api_key=settings.ai_api_key,
+                timeout=settings.ai_timeout_seconds,
+            )
+            if settings.ai_api_key
+            else None
+        )
 
     async def analyze(self, request: AnalyzeRequest) -> AnalyzeResponse:
         if not self.settings.ai_api_key:
@@ -31,11 +39,7 @@ class AIAnalysisService:
             )
 
         try:
-            client = AsyncOpenAI(
-                api_key=self.settings.ai_api_key,
-                timeout=self.settings.ai_timeout_seconds,
-            )
-            completion = await client.beta.chat.completions.parse(
+            completion = await self.client.beta.chat.completions.parse(
                 model=self.settings.ai_model,
                 messages=[
                     {
@@ -50,7 +54,16 @@ class AIAnalysisService:
                 response_format=AnalyzeResponse,
             )
 
-            parsed_response = completion.choices[0].message.parsed
+            message = completion.choices[0].message
+            refusal = getattr(message, "refusal", None)
+            if refusal:
+                return self._failed_response(
+                    request,
+                    title="AI provider refused the request",
+                    description=str(refusal),
+                )
+
+            parsed_response = message.parsed
             if not parsed_response:
                 return self._invalid_model_response(request, "The model returned an empty response.")
 

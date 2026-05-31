@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.config import Settings
 from app.models.analyze_models import AnalyzeRequest, AnalyzeResponse
-from app.services.ai_analysis_service import AIAnalysisService, MissingApiKeyError
-from app.services.mock_analysis_service import MockAnalysisService
+from app.services.ai_analysis_service import MissingApiKeyError
+from app.services.analysis_strategy import get_analysis_strategy_factory
 
 
 router = APIRouter(tags=["analysis"])
@@ -20,10 +20,7 @@ async def analyze_code(request: AnalyzeRequest) -> AnalyzeResponse:
     settings = Settings.from_env()
 
     try:
-        if settings.analysis_mode == "ai":
-            return await AIAnalysisService(settings).analyze(request)
-
-        return MockAnalysisService().analyze(request)
+        return await get_analysis_strategy_factory(settings).analyze(request)
     except MissingApiKeyError as error:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
