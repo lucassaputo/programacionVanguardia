@@ -514,67 +514,261 @@ onClick={() => setActiveStep(step.id)}
 ))}
 </section>
 
-      {activeStep === 'analysis' && (
-        <section className="view-shell analysis-view">
+{activeStep === 'analysis' && (
+<section className="view-shell analysis-view">
+<ViewHeader
+title="Nuevo analisis"
+description="Carga codigo, elige lenguaje y ejecuta la auditoria."
+meta={`${lineCount} linea${lineCount === 1 ? '' : 's'}`}
+/>
+<div className="editor-pane editor-pane-full">
+<div className="toolbar">
+<div className="toolbar-group">
+<label htmlFor="language-select">Lenguaje</label>
+<select id="language-select" value={language} onChange={(event) => setLanguage(event.target.value)}>
+{languageOptions.filter((option) => option.value).map((option) => (
+<option key={option.value} value={option.value}>{option.label}</option>
+))}
+</select>
+</div>
+<span className="status">{status}</span>
+<div className="toolbar-actions">
+<button className="ghost-button" type="button" onClick={handleRestoreExample} title="Restaurar ejemplo">
+<RotateCcw size={16} /> Ejemplo
+</button>
+<button className="ghost-button" type="button" onClick={handleClearCode} title="Limpiar editor">
+<Trash2 size={16} /> Limpiar
+</button>
+{analysis && (
+<button className="secondary-button" type="button" onClick={() => setActiveStep('results')}>
+Resultados
+</button>
+)}
+</div>
+{isAnalyzing ? (
+<button className="secondary-button analyze-button" type="button" onClick={handleCancelAnalysis}>
+<Square size={16} /> Cancelar
+</button>
+) : (
+<button className="primary-button analyze-button" type="button" onClick={handleAnalyze} disabled={!isAuthenticated}>
+<Play size={16} /> Analizar
+</button>
+)}
+</div>
+<div className="editor-frame">
+<Editor
+height="100%"
+language={language}
+value={code}
+theme="vs-dark"
+options={editorOptions}
+loading={<div className="editor-loading">Preparando editor...</div>}
+onChange={(value) => setCode(value || '')}
+onMount={(editor, monaco) => {
+editorRef.current = editor;
+monacoRef.current = monaco;
+monaco.editor.setModelMarkers(editor.getModel(), 'audit', markers);
+}}
+path={`audit.${language}`}
+/>
+</div>
+</div>
+</section>
+)}
+
+      {activeStep === 'results' && (
+        <section className="view-shell results-view">
           <ViewHeader
-            title="Nuevo analisis"
-            description="Carga codigo, elige lenguaje y ejecuta la auditoria."
-            meta={`${lineCount} linea${lineCount === 1 ? '' : 's'}`}
+            title="Resultado de auditoria"
+            description="Revisa riesgo, hallazgos y recomendaciones accionables."
+            meta={analysis?.status ? statusLabel(analysis.status) : status}
           />
-          <div className="editor-pane editor-pane-full">
-            <div className="toolbar">
-              <div className="toolbar-group">
-                <label htmlFor="language-select">Lenguaje</label>
-                <select id="language-select" value={language} onChange={(event) => setLanguage(event.target.value)}>
-                  {languageOptions.filter((option) => option.value).map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <span className="status">{status}</span>
-              <div className="toolbar-actions">
-                <button className="ghost-button" type="button" onClick={handleRestoreExample} title="Restaurar ejemplo">
-                  <RotateCcw size={16} /> Ejemplo
-                </button>
-                <button className="ghost-button" type="button" onClick={handleClearCode} title="Limpiar editor">
-                  <Trash2 size={16} /> Limpiar
-                </button>
-                {analysis && (
-                  <button className="secondary-button" type="button" onClick={() => setActiveStep('results')}>
-                    Resultados
-                  </button>
-                )}
-              </div>
-              {isAnalyzing ? (
-                <button className="secondary-button analyze-button" type="button" onClick={handleCancelAnalysis}>
-                  <Square size={16} /> Cancelar
-                </button>
-              ) : (
-                <button className="primary-button analyze-button" type="button" onClick={handleAnalyze} disabled={!isAuthenticated}>
-                  <Play size={16} /> Analizar
-                </button>
-              )}
-            </div>
-            <div className="editor-frame">
-              <Editor
-                height="100%"
-                language={language}
-                value={code}
-                theme="vs-dark"
-                options={editorOptions}
-                loading={<div className="editor-loading">Preparando editor...</div>}
-                onChange={(value) => setCode(value || '')}
-                onMount={(editor, monaco) => {
-                  editorRef.current = editor;
-                  monacoRef.current = monaco;
-                  monaco.editor.setModelMarkers(editor.getModel(), 'audit', markers);
-                }}
-                path={`audit.${language}`}
-              />
-            </div>
-          </div>
+          <FindingsPanel
+            analysis={analysis}
+            findingCount={findingCount}
+            analysisError={analysisError}
+            language={language}
+            status={status}
+            onGoToEditor={handleGoToEditor}
+            onStartNewAnalysis={() => setActiveStep('analysis')}
+          />
         </section>
       )}
 </main>
 );
 }
+
+function ViewHeader({ title, description, meta }) {
+return (
+<header className="view-header">
+<div>
+<h2>{title}</h2>
+<p>{description}</p>
+</div>
+{meta && <span>{meta}</span>}
+</header>
+);
+}
+
+function buildMarkers(findings) {
+return findings
+.filter((finding) => Number.isInteger(finding.line) && finding.line > 0)
+.map((finding) => ({
+severity: finding.severity === 'critical' ? 8 : finding.severity === 'warning' ? 4 : 2,
+message: [finding.title, finding.description, finding.suggestion].filter(Boolean).join(' - '),
+startLineNumber: finding.line,
+startColumn: 1,
+endLineNumber: finding.line,
+endColumn: 1000,
+}));
+}
+
+function FindingsPanel({ analysis, findingCount, analysisError, language, status, onGoToEditor, onStartNewAnalysis }) {
+  const riskLevel = analysis?.riskLevel || 'sin datos';
+  const hasFindings = Boolean(analysis?.findings?.length);
+  const showCleanResult = analysis && analysis.findings?.length === 0 && analysis.status !== 'failed';
+
+  return (
+    <section className="findings-pane">
+      <header>
+        <h2><FileWarning size={16} /> Hallazgos</h2>
+        <span>{findingCount} hallazgo{findingCount === 1 ? '' : 's'}</span>
+      </header>
+
+      <div className="results-summary">
+        <div className={`summary-card ${riskClass(riskLevel)}`}>
+          <span>Riesgo general</span>
+          <strong>{riskLevel}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Hallazgos</span>
+          <strong>{findingCount}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Estado</span>
+          <strong>{analysis?.status ? statusLabel(analysis.status) : status}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Lenguaje</span>
+          <strong>{analysis?.language || language}</strong>
+        </div>
+      </div>
+
+      {analysis?.status && !terminalStatuses.has(analysis.status) && (
+        <div className="processing-banner">
+          {statusLabel(analysis.status)}
+        </div>
+      )}
+
+      {analysisError && <p className="history-error">{analysisError}</p>}
+
+      {!analysis && (
+        <div className="empty-state empty-state-action">
+          <CheckCircle2 size={24} />
+          <p>Todavia no ejecutaste un analisis. Carga codigo y presiona Analizar.</p>
+          <button className="primary-button" type="button" onClick={onStartNewAnalysis}>
+            Nuevo analisis
+          </button>
+        </div>
+      )}
+
+      {showCleanResult && (
+        <div className="empty-state clean-result">
+          <CheckCircle2 size={28} />
+          <p>No se detectaron hallazgos en este analisis.</p>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Analizar otro codigo
+          </button>
+        </div>
+      )}
+
+      {analysis && analysis.findings?.length === 0 && analysis.status === 'failed' && (
+        <div className="empty-state empty-state-action">
+          {analysis.status === 'failed' ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
+          <p>{analysis.pedagogicalExplanation || 'No se detectaron hallazgos.'}</p>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Volver al editor
+          </button>
+        </div>
+      )}
+
+      {analysis?.findings?.map((finding, index) => (
+        <article className={`finding ${severityClass(finding.severity)}`} key={`${finding.title}-${index}`}>
+          <div className="finding-header">
+            <div>
+              <strong>{finding.title || 'Hallazgo'}</strong>
+              <small>{Number.isInteger(finding.line) ? `Linea ${finding.line}` : 'Sin linea'} - {finding.type}</small>
+            </div>
+            <span>{finding.severity || 'suggestion'}</span>
+          </div>
+          <p>{finding.description}</p>
+          {finding.suggestion && (
+            <div className="suggestion">
+              <strong>Recomendacion</strong>
+              <span>{finding.suggestion}</span>
+            </div>
+          )}
+          <div className="finding-actions">
+            <button className="secondary-button" type="button" onClick={() => onGoToEditor(finding.line)}>
+              Ver en editor
+            </button>
+          </div>
+        </article>
+      ))}
+
+      {analysis?.pedagogicalExplanation && hasFindings && (
+        <section className="analysis-block explanation-block">
+          <h3>Explicacion pedagogica</h3>
+          <p>{analysis.pedagogicalExplanation}</p>
+        </section>
+      )}
+
+      {analysis?.refactoredCode && (
+        <section className="analysis-block refactor-block">
+          <h3>Codigo sugerido</h3>
+          <pre>{analysis.refactoredCode}</pre>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Volver al editor
+          </button>
+        </section>
+      )}
+
+      {analysis?.estimatedTokens && (
+        <section className="analysis-block cost-block">
+          <h3>Estimacion IA</h3>
+          <p>{analysis.estimatedTokens} tokens estimados - USD {Number(analysis.estimatedCostUsd || 0).toFixed(6)}</p>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function statusLabel(status) {
+if (status === 'pending') return 'Auditoria en cola';
+if (status === 'processing') return 'Analisis en progreso';
+if (status === 'success') return 'Analisis completado';
+if (status === 'failed') return 'Analisis fallido';
+return 'Listo';
+}
+
+function severityClass(severity) {
+if (severity === 'critical') return 'critical';
+if (severity === 'warning') return 'warning';
+return 'suggestion';
+}
+
+function riskClass(riskLevel) {
+if (riskLevel === 'critical') return 'critical';
+if (riskLevel === 'high') return 'critical';
+if (riskLevel === 'medium') return 'warning';
+return 'suggestion';
+}
+
+function statusClass(status) {
+if (status === 'success') return 'success';
+if (status === 'failed') return 'failed';
+if (status === 'processing' || status === 'pending') return 'processing';
+return 'neutral';
+}
+
+createRoot(document.getElementById('root')).render(<App />);
