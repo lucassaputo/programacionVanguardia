@@ -19,6 +19,7 @@ class Settings:
     ai_model: str = "gpt-4o-mini"
     ai_api_key: str | None = None
     ai_timeout_seconds: float = 30.0
+    ai_fallback_to_mock: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -32,10 +33,18 @@ class Settings:
         except ValueError:
             timeout = 30.0
 
+        fallback_to_mock = os.getenv("AI_FALLBACK_TO_MOCK", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+        }
+
         return cls(
             analysis_mode=mode,  # type: ignore[arg-type]
             ai_provider=os.getenv("AI_PROVIDER", "openai").strip().lower(),
             ai_model=os.getenv("AI_MODEL", "gpt-4o-mini").strip(),
-            ai_api_key=os.getenv("AI_API_KEY"),
+            ai_api_key=os.getenv("AI_API_KEY") or os.getenv("OPENAI_API_KEY"),
             ai_timeout_seconds=timeout,
+            ai_fallback_to_mock=fallback_to_mock,
         )

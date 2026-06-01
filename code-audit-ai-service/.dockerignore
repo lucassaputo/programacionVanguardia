@@ -9,3 +9,6 @@ htmlcov
 .git
 .gitignore
 README.md
+tests
+.env
+*.log
