@@ -4,6 +4,8 @@ Microservicio Python con FastAPI para analizar codigo fuente dentro de la plataf
 
 Importante: Java no debe cambiar su contrato. El endpoint `POST /analyze` mantiene la misma entrada y devuelve siempre un JSON compatible con `AnalyzeResponse`.
 
+El procesamiento asincronico vive en el backend Java. Este servicio sigue siendo sin estado: recibe una solicitud de analisis y responde de forma sincrona al worker Java.
+
 ## Requisitos
 
 - Python 3.12 o superior
@@ -36,6 +38,7 @@ AI_PROVIDER=openai
 AI_MODEL=gpt-4o-mini
 AI_API_KEY=
 AI_TIMEOUT_SECONDS=30
+AI_FALLBACK_TO_MOCK=false
 ```
 
 Valores soportados:
@@ -46,6 +49,7 @@ Valores soportados:
 - `AI_MODEL=gpt-4o-mini`: modelo usado para el analisis.
 - `AI_API_KEY`: clave tomada desde el entorno. Nunca debe hardcodearse.
 - `AI_TIMEOUT_SECONDS=30`: timeout de llamada al proveedor IA.
+- `AI_FALLBACK_TO_MOCK=false`: si se configura en `true`, el servicio usa mock cuando IA esta activa pero falta API key.
 
 ## Ejecutar en modo mock
 
@@ -76,6 +80,8 @@ $env:AI_API_KEY="tu_api_key"
 $env:AI_TIMEOUT_SECONDS="30"
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+Tambien se acepta `OPENAI_API_KEY` como alias de `AI_API_KEY`.
 
 Swagger queda disponible en:
 
@@ -139,12 +145,15 @@ AI_PROVIDER=openai
 AI_MODEL=gpt-4o-mini
 AI_API_KEY=sk-...
 AI_TIMEOUT_SECONDS=30
+AI_FALLBACK_TO_MOCK=false
 ```
 
 ## Manejo de errores
 
 - Si `ANALYSIS_MODE=ai` y falta `AI_API_KEY`, responde HTTP 500 con `AI_API_KEY is not configured`.
+- Si `AI_FALLBACK_TO_MOCK=true`, una API key faltante no bloquea la demo y se responde con mock.
 - Si OpenAI devuelve timeout, error de conexion o error del proveedor, el endpoint responde JSON con `status="failed"`.
+- Si el proveedor rechaza la solicitud, la respuesta se normaliza como `status="failed"`.
 - Si la respuesta del modelo no cumple el contrato, se captura el error de validacion y se devuelve un finding tecnico controlado.
 - Si ocurre una excepcion inesperada, el servicio responde un fallback compatible con `AnalyzeResponse`.
 
@@ -153,6 +162,9 @@ AI_TIMEOUT_SECONDS=30
 - `auditId` es obligatorio.
 - `language` es obligatorio.
 - `code` es obligatorio.
+- `auditId` tiene longitud maxima de 36 caracteres.
+- `language` tiene longitud maxima de 60 caracteres.
+- `code` tiene longitud maxima de 20000 caracteres.
 - Si `code` llega vacio, el servicio responde HTTP 400 con un mensaje claro.
 
 ## Ejecutar con Docker
@@ -178,6 +190,12 @@ docker run --rm -p 8000:8000 \
   -e AI_MODEL=gpt-4o-mini \
   -e AI_API_KEY=tu_api_key \
   code-audit-ai-service
+```
+
+## Ejecutar tests
+
+```bash
+pytest
 ```
 
 ## Alcance
