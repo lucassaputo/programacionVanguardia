@@ -6,8 +6,6 @@ Sprints.jpeg
 /Frontend/dist/
 /Frontend/test-results/
 /Frontend/playwright-report/
-/infra/.env
-/.env
 /code-audit-ai-service/.venv/
 **/__pycache__/
 *.pyc

@@ -10,7 +10,7 @@ public enum RiskLevel {
 
     RiskLevel(String value) {
         this.value = value;
-SupportedLanguaj    }
+    }
 
     public String value() {
         return value;

@@ -1,5 +1,0 @@
-services:
-  code-audit-ai-service:
-    environment:
-      ANALYSIS_MODE: ai
-      AI_PROVIDER: openai
