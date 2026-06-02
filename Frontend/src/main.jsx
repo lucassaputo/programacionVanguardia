@@ -1,3 +1,4 @@
+@@ -1,872 +1,962 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Editor from '@monaco-editor/react';
@@ -513,6 +514,120 @@ function App() {
           </button>
         ))}
       </section>
+
+      {activeStep === 'analysis' && (
+        <section className="view-shell analysis-view">
+          <ViewHeader
+            title="Nuevo analisis"
+            description="Carga codigo, elige lenguaje y ejecuta la auditoria."
+            meta={`${lineCount} linea${lineCount === 1 ? '' : 's'}`}
+          />
+          <div className="editor-pane editor-pane-full">
+            <div className="toolbar">
+              <div className="toolbar-group">
+                <label htmlFor="language-select">Lenguaje</label>
+                <select id="language-select" value={language} onChange={(event) => setLanguage(event.target.value)}>
+                  {languageOptions.filter((option) => option.value).map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <span className="status">{status}</span>
+              <div className="toolbar-actions">
+                <button className="ghost-button" type="button" onClick={handleRestoreExample} title="Restaurar ejemplo">
+                  <RotateCcw size={16} /> Ejemplo
+                </button>
+                <button className="ghost-button" type="button" onClick={handleClearCode} title="Limpiar editor">
+                  <Trash2 size={16} /> Limpiar
+                </button>
+                {analysis && (
+                  <button className="secondary-button" type="button" onClick={() => setActiveStep('results')}>
+                    Resultados
+                  </button>
+                )}
+              </div>
+              {isAnalyzing ? (
+                <button className="secondary-button analyze-button" type="button" onClick={handleCancelAnalysis}>
+                  <Square size={16} /> Cancelar
+                </button>
+              ) : (
+                <button className="primary-button analyze-button" type="button" onClick={handleAnalyze} disabled={!isAuthenticated}>
+                  <Play size={16} /> Analizar
+                </button>
+              )}
+            </div>
+            <div className="editor-frame">
+              <Editor
+                height="100%"
+                language={language}
+                value={code}
+                theme="vs-dark"
+                options={editorOptions}
+                loading={<div className="editor-loading">Preparando editor...</div>}
+                onChange={(value) => setCode(value || '')}
+                onMount={(editor, monaco) => {
+                  editorRef.current = editor;
+                  monacoRef.current = monaco;
+                  monaco.editor.setModelMarkers(editor.getModel(), 'audit', markers);
+                }}
+                path={`audit.${language}`}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeStep === 'metrics' && (
+        <section className="view-shell metrics-view">
+          <ViewHeader
+            title="Resumen del proyecto"
+            description="Observa volumen, riesgo y distribucion por lenguaje."
+            meta={`${metrics?.totalAudits || 0} auditorias`}
+          />
+          <MetricsPanel metrics={metrics} />
+        </section>
+      )}
+
+      {activeStep === 'history' && (
+        <section className="view-shell history-view">
+          <ViewHeader
+            title="Auditorias guardadas"
+            description="Consulta auditorias anteriores y recupera sus resultados."
+            meta={`${history.length} visibles`}
+          />
+          <HistoryPanel
+            history={history}
+            filters={historyFilters}
+            query={historyQuery}
+            historyError={historyError}
+            page={historyPage}
+            pageSize={historyPageSize}
+            onQueryChange={setHistoryQuery}
+            onPageChange={setHistoryPage}
+            onFilterChange={handleFilterChange}
+            onOpenAudit={handleOpenAudit}
+          />
+        </section>
+      )}
+
+      {activeStep === 'results' && (
+        <section className="view-shell results-view">
+          <ViewHeader
+            title="Resultado de auditoria"
+            description="Revisa riesgo, hallazgos y recomendaciones accionables."
+            meta={analysis?.status ? statusLabel(analysis.status) : status}
+          />
+          <FindingsPanel
+            analysis={analysis}
+            findingCount={findingCount}
+            analysisError={analysisError}
+            language={language}
+            status={status}
+            onGoToEditor={handleGoToEditor}
+            onStartNewAnalysis={() => setActiveStep('analysis')}
+          />
+        </section>
+      )}
     </main>
   );
 }
@@ -540,6 +655,281 @@ function buildMarkers(findings) {
       endLineNumber: finding.line,
       endColumn: 1000,
     }));
+}
+
+function MetricsPanel({ metrics }) {
+  const riskSummary = metrics?.byRiskLevel || {};
+  const languageSummary = metrics?.byLanguage || {};
+  const totalAudits = metrics?.totalAudits || 0;
+  const totalFindings = metrics?.totalFindings || 0;
+  const criticalCount = riskSummary.critical || 0;
+  const riskRows = Object.entries(riskSummary).filter(([, count]) => count > 0);
+  const languageRows = Object.entries(languageSummary).filter(([, count]) => count > 0);
+  const findingRate = totalAudits > 0 ? Math.round((totalFindings / totalAudits) * 100) : 0;
+
+  return (
+    <section className="metrics-pane">
+      <header>
+        <h2><BarChart3 size={16} /> Metricas</h2>
+      </header>
+      <div className="metric-grid">
+        <div>
+          <strong>{totalAudits}</strong>
+          <span>Auditorias</span>
+        </div>
+        <div>
+          <strong>{totalFindings}</strong>
+          <span>Hallazgos</span>
+        </div>
+        <div>
+          <strong>{criticalCount}</strong>
+          <span>Criticas</span>
+        </div>
+      </div>
+
+      <div className="metrics-layout">
+        <section className="metrics-card">
+          <h3>Distribucion por riesgo</h3>
+          {riskRows.length === 0 ? (
+            <p className="metrics-empty">Todavia no hay datos de riesgo.</p>
+          ) : (
+            riskRows.map(([risk, count]) => (
+              <MetricBar key={risk} label={risk} value={count} max={Math.max(...riskRows.map(([, itemCount]) => itemCount), 1)} className={riskClass(risk)} />
+            ))
+          )}
+        </section>
+
+        <section className="metrics-card">
+          <h3>Distribucion por lenguaje</h3>
+          {languageRows.length === 0 ? (
+            <p className="metrics-empty">Todavia no hay datos por lenguaje.</p>
+          ) : (
+            languageRows.map(([itemLanguage, count]) => (
+              <MetricBar key={itemLanguage} label={itemLanguage} value={count} max={Math.max(...languageRows.map(([, itemCount]) => itemCount), 1)} />
+            ))
+          )}
+        </section>
+
+        <section className="metrics-card metrics-card-highlight">
+          <h3>Lectura rapida</h3>
+          <strong>{findingRate}%</strong>
+          <p>Promedio relativo de hallazgos por auditoria registrada.</p>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function MetricBar({ label, value, max, className = '' }) {
+  const width = max > 0 ? Math.max((value / max) * 100, 6) : 0;
+
+  return (
+    <div className="metric-bar-row">
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <div className="metric-bar-track">
+        <span className={className} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function HistoryPanel({ history, filters, query, historyError, page, pageSize, onQueryChange, onPageChange, onFilterChange, onOpenAudit }) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleHistory = normalizedQuery
+    ? history.filter((audit) => [
+      audit.language,
+      audit.riskLevel,
+      audit.status,
+      audit.createdAt,
+      String(audit.findingsCount ?? ''),
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+    : history;
+
+  return (
+    <section className="history-pane">
+      <header>
+        <h2><History size={16} /> Historial</h2>
+        <span>{visibleHistory.length}</span>
+      </header>
+
+      <div className="history-search">
+        <Search size={16} />
+        <input
+          type="search"
+          placeholder="Buscar por lenguaje, riesgo o estado"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
+      </div>
+
+      <div className="history-filters">
+        <select value={filters.language} onChange={(event) => onFilterChange({ ...filters, language: event.target.value })}>
+          {languageOptions.map((option) => (
+            <option key={option.value || 'all-languages'} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <select value={filters.riskLevel} onChange={(event) => onFilterChange({ ...filters, riskLevel: event.target.value })}>
+          {riskOptions.map((option) => (
+            <option key={option.value || 'all-risks'} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {historyError && <p className="history-error">{historyError}</p>}
+
+      {visibleHistory.length === 0 && !historyError && (
+        <div className="history-empty">Todavia no hay auditorias guardadas.</div>
+      )}
+
+      <div className="history-list">
+      {visibleHistory.map((audit) => (
+        <button className="history-item" key={audit.auditId} type="button" onClick={() => onOpenAudit(audit.auditId)}>
+          <div>
+            <strong>{audit.language}</strong>
+            <span>{new Date(audit.createdAt).toLocaleString()}</span>
+          </div>
+          <small className={`status-chip ${statusClass(audit.status)}`}>{statusLabel(audit.status)}</small>
+          <small className={`risk-chip ${riskClass(audit.riskLevel)}`}>{audit.riskLevel}</small>
+          <small>{audit.status === 'success' ? `${audit.findingsCount} hallazgo${audit.findingsCount === 1 ? '' : 's'}` : statusLabel(audit.status)}</small>
+          <ChevronRight size={15} />
+        </button>
+      ))}
+      </div>
+
+      <div className="pagination-controls">
+        <button type="button" onClick={() => onPageChange(Math.max(page - 1, 0))} disabled={page === 0}>
+          Anterior
+        </button>
+        <span>Pagina {page + 1}</span>
+        <button type="button" onClick={() => onPageChange(page + 1)} disabled={history.length < pageSize}>
+          Siguiente
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FindingsPanel({ analysis, findingCount, analysisError, language, status, onGoToEditor, onStartNewAnalysis }) {
+  const riskLevel = analysis?.riskLevel || 'sin datos';
+  const hasFindings = Boolean(analysis?.findings?.length);
+  const showCleanResult = analysis && analysis.findings?.length === 0 && analysis.status !== 'failed';
+
+  return (
+    <section className="findings-pane">
+      <header>
+        <h2><FileWarning size={16} /> Hallazgos</h2>
+        <span>{findingCount} hallazgo{findingCount === 1 ? '' : 's'}</span>
+      </header>
+
+      <div className="results-summary">
+        <div className={`summary-card ${riskClass(riskLevel)}`}>
+          <span>Riesgo general</span>
+          <strong>{riskLevel}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Hallazgos</span>
+          <strong>{findingCount}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Estado</span>
+          <strong>{analysis?.status ? statusLabel(analysis.status) : status}</strong>
+        </div>
+        <div className="summary-card">
+          <span>Lenguaje</span>
+          <strong>{analysis?.language || language}</strong>
+        </div>
+      </div>
+
+      {analysis?.status && !terminalStatuses.has(analysis.status) && (
+        <div className="processing-banner">
+          {statusLabel(analysis.status)}
+        </div>
+      )}
+
+      {analysisError && <p className="history-error">{analysisError}</p>}
+
+      {!analysis && (
+        <div className="empty-state empty-state-action">
+          <CheckCircle2 size={24} />
+          <p>Todavia no ejecutaste un analisis. Carga codigo y presiona Analizar.</p>
+          <button className="primary-button" type="button" onClick={onStartNewAnalysis}>
+            Nuevo analisis
+          </button>
+        </div>
+      )}
+
+      {showCleanResult && (
+        <div className="empty-state clean-result">
+          <CheckCircle2 size={28} />
+          <p>No se detectaron hallazgos en este analisis.</p>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Analizar otro codigo
+          </button>
+        </div>
+      )}
+
+      {analysis && analysis.findings?.length === 0 && analysis.status === 'failed' && (
+        <div className="empty-state empty-state-action">
+          {analysis.status === 'failed' ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
+          <p>{analysis.pedagogicalExplanation || 'No se detectaron hallazgos.'}</p>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Volver al editor
+          </button>
+        </div>
+      )}
+
+      {analysis?.findings?.map((finding, index) => (
+        <article className={`finding ${severityClass(finding.severity)}`} key={`${finding.title}-${index}`}>
+          <div className="finding-header">
+            <div>
+              <strong>{finding.title || 'Hallazgo'}</strong>
+              <small>{Number.isInteger(finding.line) ? `Linea ${finding.line}` : 'Sin linea'} - {finding.type}</small>
+            </div>
+            <span>{finding.severity || 'suggestion'}</span>
+          </div>
+          <p>{finding.description}</p>
+          {finding.suggestion && (
+            <div className="suggestion">
+              <strong>Recomendacion</strong>
+              <span>{finding.suggestion}</span>
+            </div>
+          )}
+          <div className="finding-actions">
+            <button className="secondary-button" type="button" onClick={() => onGoToEditor(finding.line)}>
+              Ver en editor
+            </button>
+          </div>
+        </article>
+      ))}
+
+      {analysis?.pedagogicalExplanation && hasFindings && (
+        <section className="analysis-block explanation-block">
+          <h3>Explicacion pedagogica</h3>
+          <p>{analysis.pedagogicalExplanation}</p>
+        </section>
+      )}
+
+      {analysis?.refactoredCode && (
+        <section className="analysis-block refactor-block">
+          <h3>Codigo sugerido</h3>
+          <pre>{analysis.refactoredCode}</pre>
+          <button className="secondary-button" type="button" onClick={onStartNewAnalysis}>
+            Volver al editor
+          </button>
+        </section>
+      )}
+
+      {analysis?.estimatedTokens && (
+        <section className="analysis-block cost-block">
+          <h3>Estimacion IA</h3>
+          <p>{analysis.estimatedTokens} tokens estimados - USD {Number(analysis.estimatedCostUsd || 0).toFixed(6)}</p>
+        </section>
+      )}
+    </section>
+  );
 }
 
 function statusLabel(status) {

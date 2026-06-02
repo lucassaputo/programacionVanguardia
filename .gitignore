@@ -1,3 +1,15 @@
 Sprints.jpeg
 .claude/settings.local.json
 /backend/target
+/backend/target/
+/Frontend/node_modules/
+/Frontend/dist/
+/Frontend/test-results/
+/Frontend/playwright-report/
+/infra/.env
+/.env
+/code-audit-ai-service/.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+code-audit-ai-service/.pytest_cache/
