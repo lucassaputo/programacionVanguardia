@@ -179,5 +179,5 @@ Por defecto Docker Compose usa `ANALYSIS_MODE=mock`. Para activar IA real:
 
 ```powershell
 $env:AI_API_KEY="tu_api_key"
-docker compose -f docker-compose.yml -f infra/docker-compose.ai.yml up --build
+docker compose up --build
 ```
